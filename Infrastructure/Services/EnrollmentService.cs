@@ -2,7 +2,9 @@ using System.Net;
 using AutoMapper;
 using Domain.DTOs.EnrollmentDTOs;
 using Domain.Entities;
+using Domain.Filters;
 using Domain.Response;
+using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -60,16 +62,21 @@ public class EnrollmentService(DataContext context, IMapper mapper) : IEnrollmen
             : new Response<string>("Enrollment deleted successfully");
     }
 
-    public async Task<Response<List<GetEnrollmentDTO>>> GetAllEnrollments()
+    public async Task<Response<List<GetEnrollmentDTO>>> GetAllEnrollments(StudentFilter filter)
     {
-        var enrollments = await context.Enrollments.ToListAsync();
+        var validfilter = new ValidFilter(filter.PageNumber, filter.PageSize);
+        var enrollments = context.Enrollments.AsQueryable();
 
-        if (enrollments.Count == 0)
-            return new Response<List<GetEnrollmentDTO>>(HttpStatusCode.NotFound, "No enrollments found");
+        var mapped = mapper.Map<List<GetEnrollmentDTO>>(enrollments);
+        var totalRecords = mapped.Count;
 
-        var getEnrollmentsDto = mapper.Map<List<GetEnrollmentDTO>>(enrollments);
+        var data = mapped
+            .Skip((validfilter.PageNumber - 1) * validfilter.PageSize)
+            .Take(validfilter.PageSize)
+            .ToList();
 
-        return new Response<List<GetEnrollmentDTO>>(getEnrollmentsDto);
+        return new PagedResponse<List<GetEnrollmentDTO>>(data, validfilter.PageNumber, validfilter.PageSize,
+            totalRecords);
     }
 
 }

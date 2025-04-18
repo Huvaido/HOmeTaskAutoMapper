@@ -12,7 +12,6 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IInstructorService, InstructorService>();
-builder.Services.AddScoped<ICourseAssignmentService, CourseAssignmentService>();
 builder.Services.AddDbContext<DataContext>(t =>
     t.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 

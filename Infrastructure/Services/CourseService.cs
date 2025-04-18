@@ -3,7 +3,9 @@ using AutoMapper;
 using Domain.DTOs.CourseDTOs;
 using Domain.DTOs.StudentDTOs;
 using Domain.Entities;
+using Domain.Filters;
 using Domain.Response;
+using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -60,16 +62,21 @@ public class CourseService(DataContext context, IMapper mapper) : ICourseService
             : new Response<string>("Course deleted successfully");
     }
 
-    public async Task<Response<List<GetCourseDTO>>> GetAllCourses()
+    public async Task<Response<List<GetCourseDTO>>> GetAllCourses(StudentFilter filter)
     {
-        var courses = await context.Courses.ToListAsync();
+        var validFilter = new ValidFilter(filter.PageNumber, filter.PageSize);
+        var courses = context.Courses.AsQueryable();
 
-        if (courses.Count == 0)
-            return new Response<List<GetCourseDTO>>(HttpStatusCode.NotFound, "No courses found");
+        var mapped = mapper.Map<List<GetCourseDTO>>(courses);
+        var totalRecords = mapped.Count;
 
-        var getCoursesDTO = mapper.Map<List<GetCourseDTO>>(courses);
+        var data = mapped
+            .Skip((validFilter.PageNumber - 1) * validFilter.PageSize)
+            .Take(validFilter.PageSize)
+            .ToList();
 
-        return new Response<List<GetCourseDTO>>(getCoursesDTO);
+        return new PagedResponse<List<GetCourseDTO>>(data, validFilter.PageNumber, validFilter.PageSize,
+            totalRecords);
     }
 
 
@@ -107,4 +114,46 @@ public class CourseService(DataContext context, IMapper mapper) : ICourseService
         return new Response<List<CourseAverageGradeDTO>>(result);
     }
 
+    //Task3
+    public async Task<Response<List<CourseCountStudents>>>GetCountCourseStudents(){
+            var coursesStudent = context.Students
+            .Select(s => new
+            {
+             StudentName = $"{s.FirstName} {s.LastName}",
+             CourseCount = s.Enrollments.Count()
+            })
+            .ToList();
+
+        if (coursesStudent.Count == 0)
+        {
+            return new Response<List<CourseCountStudents>>(HttpStatusCode.NotFound, "No courses found");
+        }
+
+        var result = mapper.Map<List<CourseCountStudents>>(coursesStudent);
+        
+        return new Response<List<CourseCountStudents>>(result);
+
+    }
+
+   //Task4
+   public async Task<Response<List<CourseNotStudents>>>GetNotStudentCourse(){
+        var studentsWitNotCourses = context.Students
+        .Where(s => !s.Enrollments.Any())
+        .Select(s => new
+         {
+            Studentid = s.StudentId,
+            FullName = $"{s.FirstName} {s.LastName}"
+        })
+        .ToList();
+        if (studentsWitNotCourses.Count == 0)
+        {
+            return new Response<List<CourseNotStudents>>(HttpStatusCode.NotFound, "No courses found");
+        }
+        var result = mapper.Map<List<CourseNotStudents>>(studentsWitNotCourses);
+        
+        return new Response<List<CourseNotStudents>>(result);
+   }
+   // task5
+
+  
 }

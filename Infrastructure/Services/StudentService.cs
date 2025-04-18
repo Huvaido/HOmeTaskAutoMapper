@@ -2,7 +2,9 @@ using System.Net;
 using AutoMapper;
 using Domain.DTOs.StudentDTOs;
 using Domain.Entities;
+using Domain.Filters;
 using Domain.Response;
+using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -58,17 +60,30 @@ public class StudentService(DataContext context, IMapper mapper) : IStudentServi
             : new Response<string>("Student deleted successfully");
     }
 
-    public async Task<Response<List<GetStudentDTO>>> GetAllStudents()
+    public async Task<Response<List<GetStudentDTO>>> GetAllStudents(StudentFilter filter)
     {
-        var AllStudents = await context.Students
-            .ToListAsync();
+      var validfilter = new ValidFilter(filter.PageNumber, filter.PageSize);
+        var students = context.Students.AsQueryable();
 
-        if (AllStudents.Count == 0)
-            return new Response<List<GetStudentDTO>>(HttpStatusCode.NotFound, "No students found");
+        if (filter.Name != null)
+        {
+            students = students.Where(s => string.Concat(s.FirstName, " ", s.LastName).ToLower().Contains(filter.Name.ToLower()));
+        }
 
-        var getStudentsDto = mapper.Map<List<GetStudentDTO>>(AllStudents);
-        
-        return new Response<List<GetStudentDTO>>(getStudentsDto);
+        if (filter.From != null)
+        {
+            var year = DateTime.UtcNow.Year;
+            students = students.Where(s => year - s.BirthDate.Year >= filter.From);
+        }
+
+        var mapped = mapper.Map<List<GetStudentDTO>>(students);
+        var totalRecords = mapped.Count;
+        var data = mapped
+                .Skip((validfilter.PageNumber - 1) * validfilter.PageSize)
+                .Take(validfilter.PageSize)
+                .ToList();
+        return new PagedResponse<List<GetStudentDTO>>(data, validfilter.PageNumber, validfilter.PageSize,
+                totalRecords);
     }
 
     //Task4
